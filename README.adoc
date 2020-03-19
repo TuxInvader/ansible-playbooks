@@ -1,0 +1,11 @@
+= Ansible Playbooks for various things
+:showtitle:
+
+[cols="^20,<80" grid="none" frame="none"]
+|===
+| image:img/nginx-logo-black.png[NGINX,150,100,align="center"]
+|
+This folder includes various playbooks for NGINX, Controller, etc. +
+They're mostly used for building customer demos and workshops
+|===
+
