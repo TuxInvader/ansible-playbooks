@@ -1,0 +1,3 @@
+- geerlingguy.jenkins, 3.8.0
+- geerlingguy.java, 1.9.7
+- nginxinc.nginx, 0.13.0

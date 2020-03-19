@@ -1,0 +1,57 @@
+---
+- hosts: vaults
+  gather_facts: no
+  become: yes
+
+  vars:
+    vault_version: 1.2.3
+    vault_policy: policies/pki.pol
+
+  tasks:
+
+  - name: Check for Vault Install
+    stat:
+      path: "/usr/local/bin/vault.{{ vault_version }}"
+    register: vault_binary
+
+  - name: create temp folder for downloads
+    tempfile:
+      path: /tmp/
+      state: directory
+      prefix: vault_dl
+    register: vault_dl
+    when: vault_binary.stat.exists == False
+
+  - name: Download Ansible Vault
+    get_url:
+      url: https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip
+      dest: "{{ vault_dl.path }}"
+    when: vault_binary.stat.exists == False
+
+  - name: Extract the ansible files
+    unarchive:
+      dest: "{{ vault_dl.path }}"
+      remote_src: yes
+      src: "{{ vault_dl.path }}/vault_{{ vault_version }}_linux_amd64.zip"
+    when: vault_dl.path is defined
+
+  - name: Move vault to /usr/local/bin
+    copy:
+      dest: "/usr/local/bin/vault.{{ vault_version }}"
+      remote_src: yes
+      src: "{{vault_dl.path }}/vault"
+      mode: 0755
+    when: vault_dl.path is defined
+
+  - name: Symlink vault.version to vault
+    file:
+      force: yes
+      path: "/usr/local/bin/vault"
+      src: "/usr/local/bin/vault.{{ vault_version }}"
+      state: link
+
+  - name: Remove temporary files
+    file:
+      path: "{{ vault_dl.path }}"
+      state: absent
+    when: vault_dl.path is defined

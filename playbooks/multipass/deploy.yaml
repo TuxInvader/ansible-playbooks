@@ -1,0 +1,34 @@
+---
+- hosts: localhost
+  become: no
+  gather_facts: smart
+  user: "{{ local_user }}"
+
+  vars_files:
+    - ~/ansible/vars/multipass.yaml
+
+  tasks:
+
+    - name: Display all variables/facts known for a host
+      debug:
+        var: hostvars[inventory_hostname]
+        verbosity: 3
+
+    - name: Register the multipass_list fact
+      import_tasks: tasks/multipass_list.yaml
+
+    - name: Deploy the Virtual Machines
+      import_tasks: tasks/multipass_deploy.yaml
+
+    - name: Update the multipass_list fact
+      import_tasks: tasks/multipass_list.yaml
+
+    - name: Ensure the multipass hosts have the correct mappings in /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        regexp: ".*# multipass host {{ item.key }}"
+        line: "{{ multipass_list[ item.key ].0.ipv4.0 }}    {{ item.key }} {{ item.key }}.{{ multipass.dns_domain }}    # multipass host {{ item.key }}"
+        state: present
+      with_dict: "{{ multipass.hosts }}"
+

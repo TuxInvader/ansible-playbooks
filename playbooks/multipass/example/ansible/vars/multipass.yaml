@@ -1,0 +1,35 @@
+# Ansible variable configuration
+---
+local:
+  user: chucknorris
+  home: /Users/chucknorris
+  ssh_key: ~/.ssh/ansible
+  ssh_pub: ~/.ssh/ansible.pub
+
+remote:
+  user: nginx
+  home: /home/nginx
+  ssh_key: ~/.ssh/ansible
+  ssh_pub: ~/.ssh/ansible.pub
+
+multipass:
+  binary: /usr/local/bin/multipass
+  gateway: 192.168.64.1
+  dns_dnat_port: 5553
+  dns_domain: chuck.norris
+  vm_version: "18.04"
+  vm_ci_template: "files/cloud-init.j2"
+  hosts:
+    mp01:
+      cpu: 1
+      mem: 1G
+      disk: 10G
+    mp02:
+      cpu: 1
+      mem: 1G
+      disk: 10G
+    ngxctl:
+      cpu: 4
+      mem: 6G
+      disk: 40G
+

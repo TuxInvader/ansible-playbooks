@@ -1,0 +1,45 @@
+---
+
+  - name: Create temporary deployment folder
+    tempfile:
+      state: directory
+      prefix: mpbuild_
+    register: build_dir
+
+
+  - name: Create the cloudinit file
+    template:
+      src: "{{ multipass.vm_ci_template }}"
+      dest: "{{ build_dir.path }}/cloud.init"
+
+  - name: Create/Launch the multipass VMs
+    command:
+      argv: 
+        - "{{ multipass.binary }}"
+        - "launch"
+        - "--cpus={{ item.value.cpu }}"
+        - "--disk={{ item.value.disk }}"
+        - "--mem={{ item.value.mem }}"
+        - "--name={{ item.key }}"
+        - "--cloud-init={{ build_dir.path }}/cloud.init"
+        - "{{ multipass.vm_version }}"
+
+    with_dict: "{{ multipass.hosts }}"
+    when: item.key not in multipass_list
+
+  - name: Start any instances which exist but are Stopped
+    command:
+      argv: 
+        - "{{ multipass.binary }}"
+        - "start"
+        - "{{ item.key }}"
+    with_dict: "{{ multipass.hosts }}"
+    when:
+      - multipass_list[item.key] is defined
+      - multipass_list[item.key].0.state == "Stopped"
+
+  - name: Clean up temporary build folder
+    file:
+      path: "{{ build_dir.path }}"
+      state: absent
+

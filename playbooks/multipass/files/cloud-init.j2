@@ -1,0 +1,27 @@
+#cloud-config
+users:
+  - default
+  - name: {{ remote.user }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+    - {{ lookup('file', remote.ssh_pub ) }}
+  - name: ansible
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+    - {{ lookup('file', local.ssh_pub ) }}
+
+runcmd:
+  - "echo '[Resolve]\nDomains={{ multipass.dns_domain }}' > /etc/systemd/resolved.conf && systemctl restart systemd-resolved.service"
+  - "iptables -t nat -I OUTPUT -p udp --dport 53 -d {{ multipass.gateway }} -j DNAT --to-destination {{ multipass.gateway}}:{{ multipass.dns_dnat_port }}"
+
+write_files:
+  - content: |
+      #!/bin/bash
+      iptables -t nat -I OUTPUT -p udp --dport 53 -d {{ multipass.gateway }} -j DNAT --to-destination {{ multipass.gateway}}:{{ multipass.dns_dnat_port }}
+      exit 0
+    owner: root:root
+    path: /etc/rc.local
+    permissions: 0755
+

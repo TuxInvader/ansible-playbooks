@@ -1,0 +1,33 @@
+---
+- hosts: proxies
+  become: yes
+  vars:
+    ip_forwarding: True
+
+  tasks:
+
+    - name: Set ip_forwarding fact
+      set_fact: ip_forwarding = "{{ ip_forwarding }}"
+
+    - name: Enable IP Forwarding
+      lineinfile:
+        line: "net.ipv4.ip_forward=1"
+        regexp: "^#net.ipv4.ip_forward=1"
+        path: /etc/sysctl.conf
+        validate: "sysctl --load=%s"
+        state: present
+      when: ip_forwarding == True
+
+    - name: Enable iptables Masquerade in /etc/rc.local
+      copy:
+        content: |
+          #!/bin/bash
+          iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE
+          exit 0
+        dest: /etc/rc.local
+        mode: 0755
+        owner: root
+        group: root
+        validate: "bash %s"
+      when: ip_forwarding == True
+

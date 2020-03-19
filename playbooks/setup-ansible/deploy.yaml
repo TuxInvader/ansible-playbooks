@@ -1,0 +1,52 @@
+---
+- hosts: local
+  become: no
+  vars_files:
+    - ~/ansible/vars/ansible.yaml
+  user: "{{ local.user }}"
+  tasks:
+
+    - name: Generate the ansible ssh keys
+      openssh_keypair:
+        path: "{{ local.ssh_key }}"
+
+- hosts: remote
+  become: yes
+  vars_files:
+    - ~/ansible_vars.yaml
+  remote_user: "{{ remote.user }}"
+  tasks:
+
+    - name: Add the ansible user
+      user:
+        name: "ansible"
+        create_home: yes 
+        home: "/home/ansible"
+        password_lock: yes 
+        state: present
+        shell: /bin/bash
+
+    - name: Create ansibles .ssh folder
+      file:
+        path: /home/ansible/.ssh
+        state: directory
+        mode: 0700
+        owner: ansible
+        group: ansible
+
+    - name: Add public key to ansibles authorized_keys
+      copy:
+        dest: /home/ansible/.ssh/authorized_keys
+        src: "{{ local.ssh_pub }}"
+        mode: 0400
+        owner: ansible
+        group: ansible
+
+    - name: Allow passwordless sudo
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        insertafter: "root	ALL=(ALL:ALL) ALL"
+        line: "ansible ALL=(ALL) NOPASSWD: ALL"
+        validate: /usr/sbin/visudo -cf %s
+

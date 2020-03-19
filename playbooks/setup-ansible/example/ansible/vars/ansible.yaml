@@ -1,0 +1,14 @@
+# Ansible variable configuration
+---
+local:
+  user: chucknorris
+  home: /Users/chucknorris
+  ssh_key: ~/.ssh/ansible
+  ssh_pub: ~/.ssh/ansible.pub
+
+remote:
+  user: nginx
+  home: /home/nginx
+  ssh_key: ~/.ssh/ansible
+  ssh_pub: ~/.ssh/ansible.pub
+

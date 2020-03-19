@@ -1,0 +1,12 @@
+---
+
+  - name: Get the multipass host list
+    command:
+      cmd: "{{ multipass.binary }} list --format yaml"
+    register: mp_list
+
+  - name: Register the multipass hosts as facts
+    set_fact: 
+      multipass_list: "{{ mp_list.stdout | from_yaml }}"
+      cacheable: yes
+
