@@ -16,7 +16,7 @@
         state: latest
         update_cache: yes
         cache_valid_time: 3600
-        
+
     - name: Checking for kubernetes install on host
       stat:
         path: /usr/bin/kubectl
@@ -25,6 +25,7 @@
     - name: Checking for existing controller deployment
       block:
         - name: Check for nginx-controller frontend deployment
+          become: no
           shell:
             argv:
               - "kubectl"
@@ -34,16 +35,16 @@
               - "--output=yaml"
           register: deployment
           ignore_errors: yes
-  
+
         - name: Detect installed version from frontend deployment
           shell:
             cmd: "jq .spec.template.spec.containers[0].image | cut -d: -f 2 | cut -d . -f 1,2"
             stdin: "{{ deployment.stdout }}"
           register: deployment_version
           when: deployment.stdout | length > 0
-  
+
       when: kubectl_binary.stat.exists == True
-      
+
     - name: Register installed controller version
       set_fact:
         controller_installed_version: "{{ deployment_version.stdout | default('0.0') }}"
@@ -73,7 +74,46 @@
               --admin-lastname {{ controller.admin_lastname }}
               --tsdb-volume-type local
 
-      when: controller_installed_version != controller.version
+      when: controller_installed_version == "0.0"
 
+    - name: Upgrading Controller
+      block:
 
+        - name: remove old install files
+          file:
+            path: "/home/{{ ansible_ssh_user }}/controller-installer"
+            state: absent
+
+        - name: Copy ths installer to the system
+          become: no
+          unarchive:
+            src: "{{ controller.install_package }}"
+            dest: "/home/{{ ansible_ssh_user }}/"
+            creates: "/home/{{ ansible_ssh_user }}/controller-installer"
+
+        - name: Save the agent.conf
+          command:
+            cmd: cat /etc/controller-agent/agent.conf
+          register: agent_config
+          ignore_errors: true
+
+        - name: Execute the installer
+          become: no
+          command:
+            chdir: "/home/{{ ansible_ssh_user }}/controller-installer"
+            cmd: ./update.sh -c
+
+        - name: Restore the agent.conf
+          copy:
+            dest: /etc/controller-agent/agent.conf
+            content: agent_config.stdout
+          when: agent_config.stdout != ""
+
+        - name: debug
+          debug:
+            msg: agent_config
+
+      when:
+        - controller_installed_version != '0.0'
+        - controller_installed_version != controller.version
 
