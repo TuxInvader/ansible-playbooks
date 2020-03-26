@@ -137,6 +137,12 @@
         user: "{{ jenkins_admin_username }}"
         password: "{{ jenkins_admin_password }}"
 
+    - name: Disable Anonymous read access
+      lineinfile:
+        line: "   <denyAnonymousReadAccess>true</denyAnonymousReadAccess>"
+        regexp: "   <denyAnonymousReadAccess>.*"
+        path: /var/lib/jenkins/config.xml
+
     - name: Restart Jenkins
       service:
         name: jenkins
