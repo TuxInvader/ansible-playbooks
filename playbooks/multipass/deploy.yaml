@@ -2,7 +2,7 @@
 - hosts: localhost
   become: no
   gather_facts: smart
-  user: "{{ local_user }}"
+  user: "{{ local.user }}"
 
   vars_files:
     - ~/ansible/vars/multipass.yaml
