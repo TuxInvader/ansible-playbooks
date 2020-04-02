@@ -17,38 +17,33 @@
         update_cache: yes
         cache_valid_time: 3600
 
-    - name: Checking for kubernetes install on host
+    - name: Checking for existing controller install on host
       stat:
-        path: /usr/bin/kubectl
-      register: kubectl_binary
+        path: /opt/nginx-controller/files/version.txt
+      register: version_file
 
-    - name: Checking for existing controller deployment
+
+    - name: Check which version (if any) is installed, reporting major.minor
       block:
-        - name: Check for nginx-controller frontend deployment
-          become: no
-          shell:
-            argv:
-              - "kubectl"
-              - "get"
-              - "deployment/frontend"
-              - "--namespace=nginx-controller"
-              - "--output=yaml"
-          register: deployment
-          ignore_errors: yes
 
-        - name: Detect installed version from frontend deployment
-          shell:
-            cmd: "jq .spec.template.spec.containers[0].image | cut -d: -f 2 | cut -d . -f 1,2"
-            stdin: "{{ deployment.stdout }}"
-          register: deployment_version
-          when: deployment.stdout | length > 0
+      - name: get file contents
+        command: "cat {{ version_file.stat.path }}"
+        register: version
 
-      when: kubectl_binary.stat.exists == True
+      - name: Get/set fact for installed controller version
+        set_fact:
+          controller_installed_version: "{{ version.stdout | regex_replace( '^version: ([0-9]).([0-9]).([0-9])$', '\\1.\\2') }}"
+          cacheable: yes
 
-    - name: Register installed controller version
+      when: version_file.stat.exists
+
+
+    - name: get/set fact for installed controller version
       set_fact:
-        controller_installed_version: "{{ deployment_version.stdout | default('0.0') }}"
+        controller_installed_version: "0.0"
         cacheable: yes
+      when: not version_file.stat.exists
+
 
     - name: Installing Controller
       block:
@@ -74,7 +69,7 @@
               --admin-lastname {{ controller.admin_lastname }}
               --tsdb-volume-type local
 
-      when: controller_installed_version == "0.0"
+      when: not version_file.stat.exists
 
     - name: Upgrading Controller
       block:
@@ -116,4 +111,3 @@
       when:
         - controller_installed_version != '0.0'
         - controller_installed_version != controller.version
-
