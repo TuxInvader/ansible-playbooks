@@ -20,7 +20,9 @@
         Cookie: "session={{ nginx_controller_session.cookies.session }}"
       body_format: json
       body: "{{ item.value.config }}"
-      status_code: 201
+      status_code: 
+        - 201
+        - 202
       validate_certs: false
     register: last_result
     when: 
