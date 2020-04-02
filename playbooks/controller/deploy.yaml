@@ -53,7 +53,7 @@
     - name: Installing Controller
       block:
 
-        - name: Copy ths installer to the system
+        - name: Copy this installer to the system
           become: no
           unarchive:
             src: "{{ controller.install_package }}"
@@ -84,7 +84,7 @@
             path: "/home/{{ ansible_ssh_user }}/controller-installer"
             state: absent
 
-        - name: Copy ths installer to the system
+        - name: Copy this installer to the system
           become: no
           unarchive:
             src: "{{ controller.install_package }}"
