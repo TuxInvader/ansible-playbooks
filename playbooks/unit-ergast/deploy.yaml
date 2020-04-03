@@ -30,5 +30,7 @@
         name: ergastf1
         image: ergastf1:latest
         state: started
+        published_ports:
+          - 0.0.0.0:80:80
         exposed_ports:
           - 80
