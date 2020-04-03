@@ -62,7 +62,7 @@
 
     - name: "Dump Error Status"
       debug:
-        ERROR:
+        msg:
           - "{{ last_result }}"
           - "Removed: {{ controller.remove_failed }}"
       when: last_result.json.currentStatus.state.selfConfigState.error == 1
