@@ -1,0 +1,34 @@
+---
+- hosts: unit
+  become: yes
+  vars_files:
+    - ~/ansible/vars/unit-ergast-f1.yaml
+  tasks:
+
+    - name: Install Docker
+      import_tasks: tasks/docker.yaml
+
+    - name: Copy over the docker build
+      become: ubuntu
+      copy:
+        src: ~/source/ergast-f1-api
+        dest: /home/ubuntu/
+        mode: preserve
+
+    - name: Build the docker container
+      become: ubuntu
+      docker_image:
+        build:
+          path: ~/ergast-f1-api
+        name: ergastf1
+        tag: latest
+        source: build
+
+    - name: Deploy the container
+      become: ubuntu
+      docker_container:
+        name: ergastf1
+        image: ergastf1:latest
+        state: started
+        exposed_ports:
+          - 80
