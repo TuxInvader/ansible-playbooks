@@ -1,0 +1,513 @@
+---
+
+# OAS 3 Specifications. the spec should be set to spec.<filename> without the yaml extension
+# Ansible will load the specification from {{specs_dir/<name>.yaml}}
+oas3:
+  whatcheese_api:
+    config:
+      metadata:
+        name: v1
+        displayName: WhatCheese API
+      desiredState:
+        specs:
+          REST: "{{ specs.whatcheese | default({}) }}"
+
+# Identity Providers...
+idps:
+  cheese_keys:
+    config:
+      metadata:
+        name: cheese_keys
+        displayName: Whatcheese Admin Keys
+      desiredState:
+        identityProvider:
+          type: API_KEY
+
+# Local API keys (clients)
+clients:
+  cheese_admins:
+    parent: cheese_keys
+    config:
+      metadata:
+        name: cheese_admins
+        displayName: WhatCheese Admins
+      desiredState:
+        credential:
+          type: API_KEY
+          apiKey: e849b3f640a6740683f9012b097208bc
+
+envs:
+
+  cheese_prod:
+    config:
+      metadata:
+        name: cheese_prod
+        displayName: "WhatCheese [ Production ]"
+        tags: []
+      desiredState: {}
+
+    gateways: 
+      nginx_web:
+        config:
+          metadata:
+            name: nginx_web
+          desiredState:
+            ingress:
+              uris:
+                "http://www.ws01.ukws.nginxlab.net": {}
+              placement:
+                instanceRefs:
+                  - ref: "/infrastructure/locations/unspecified/instances/nginx1"
+                  - ref: "/infrastructure/locations/unspecified/instances/nginx2"
+      nginx_api:
+        config:
+          metadata:
+            name: nginx_api
+          desiredState:
+            ingress:
+              uris:
+                "http://api.ws01.ukws.nginxlab.net": {}
+              placement:
+                instanceRefs:
+                  - ref: "/infrastructure/locations/unspecified/instances/nginx1"
+                  - ref: "/infrastructure/locations/unspecified/instances/nginx2"
+
+    apps:
+      whatcheese:
+        config:
+          metadata:
+            name: whatcheese
+            displayName: WhatCheese
+            tags: []
+          desiredState: {}
+          
+      whatcheese_api:
+        config:
+          metadata:
+            name: whatcheese_api
+            displayName: WhatCheeseAPI
+            tags: []
+          desiredState: {}
+
+
+    # Published APIs - link back to OAS3 specs above
+    apis:
+      whatcheese_api:
+        parent: whatcheese_api
+        config:
+          metadata:
+            name: whatcheese_api
+            displayName: WhatCheese API
+          desiredState:
+            apiDefinitionVersionRef:
+              ref: /services/api-definitions/whatcheese_api/versions/v1
+            gatewayRefs:
+            - ref: /services/environments/cheese_prod/gateways/nginx_api
+            basePath: "/v1"
+
+    components:
+      web:
+        parent: whatcheese
+        config:
+          metadata:
+            name: web
+            displayName: web
+            tags: []
+          desiredState:
+            ingress:
+              gatewayRefs:
+              - ref: /services/environments/cheese_prod/gateways/nginx_web
+              uris:
+                /: {}
+            backend:
+              ntlmAuthentication: DISABLED
+              preserveHostHeader: DISABLED
+              workloadGroups:
+                unit:
+                  loadBalancingMethod:
+                    type: ROUND_ROBIN
+                  uris:
+                    'http://unit1:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+                    'http://unit2:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+            programmability:
+              uriRewrites:
+                - incomingPattern: "^(/blog)/old$"
+                  rewritePattern: "$1/new"
+            logging:
+              errorLog: DISABLED
+              accessLog:
+                state: ENABLED
+
+
+      # This one is for a published API
+      links:
+        parent: whatcheese_api
+        config:
+          metadata:
+            name: links
+            displayName: links
+            tags: []
+          desiredState:
+            publishedApiRefs:
+            - ref: /services/environments/cheese_prod/apps/whatcheese_api/published-apis/whatcheese_api
+            ingress:
+              uris:
+                /links:
+                  get:
+                    description: |
+                      Get list of API items
+                    operationId: getlinks
+                    responses:
+                      "200":
+                        content:
+                          application/json:
+                            schema:
+                              items:
+                                $ref: '#/components/schemas/links'
+                              type: array
+                        description: search results matching criteria
+                      "400":
+                        description: bad input parameter
+                    summary: Get API endpoints
+              gatewayRefs:
+              - ref: /services/environments/cheese_prod/gateways/nginx_api
+
+            # Security Section
+            security:
+
+              # Rate shaping definition
+              rateLimits:
+                readLimit:
+                  key: $http_x_real_ip-$request_uri    # Default $binary_remote_addr, can be any NGINX variable
+                  rate: 5r/s
+                  statusCode: 429
+
+            backend:
+              ntlmAuthentication: DISABLED
+              preserveHostHeader: DISABLED
+              workloadGroups:
+                unit:
+                  loadBalancingMethod:
+                    type: ROUND_ROBIN
+                  locationRefs:
+                    - ref: /infrastructure/locations/unspecified
+                  uris:
+                    'http://unit1:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+                    'http://unit2:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+              monitoring:
+                defaultState: HEALTHY
+                uri: /
+            logging:
+              errorLog: DISABLED
+              accessLog:
+                state: ENABLED
+
+      # This one is for a published API
+      cheese_write:
+        parent: whatcheese_api
+        config:
+          metadata:
+            name: cheese_write
+            displayName: Cheese API Write
+            tags: []
+          desiredState:
+            publishedApiRefs:
+              - ref: /services/environments/cheese_prod/apps/whatcheese_api/published-apis/whatcheese_api
+            ingress:
+              gatewayRefs:
+              - ref: /services/environments/cheese_prod/gateways/nginx_api
+              uris:
+                /add/beer:
+                  post:
+                    description: Adds a Beer to the system
+                    operationId: addBeer
+                    requestBody:
+                      content:
+                        application/json:
+                          schema:
+                            $ref: '#/components/schemas/Item'
+                      description: The Beer to add
+                    responses:
+                      "201":
+                        description: item created
+                      "400":
+                        description: invalid input, object invalid
+                      "409":
+                        description: an existing item already exists
+                    summary: adds a Beer item
+                    tags:
+                    - admins
+                /add/cheese:
+                  post:
+                    description: Adds a Cheese to the system
+                    operationId: addCheese
+                    requestBody:
+                      content:
+                        application/json:
+                          schema:
+                            $ref: '#/components/schemas/Item'
+                      description: The Cheese to add
+                    responses:
+                      "201":
+                        description: item created
+                      "400":
+                        description: invalid input, object invalid
+                      "409":
+                        description: an existing item already exists
+                    summary: adds a Cheese item
+                    tags:
+                    - admins
+                /add/pickle:
+                  post:
+                    description: Adds a Pickle to the system
+                    operationId: addPickle
+                    requestBody:
+                      content:
+                        application/json:
+                          schema:
+                            $ref: '#/components/schemas/Item'
+                      description: The Pickle to add
+                    responses:
+                      "201":
+                        description: item created
+                      "400":
+                        description: invalid input, object invalid
+                      "409":
+                        description: an existing item already exists
+                    summary: adds a Pickle item
+                    tags:
+                    - admins
+                /add/wine:
+                  post:
+                    description: Adds a Wine to the system
+                    operationId: addWine
+                    requestBody:
+                      content:
+                        application/json:
+                          schema:
+                            $ref: '#/components/schemas/Item'
+                      description: The Wine to add
+                    responses:
+                      "201":
+                        description: item created
+                      "400":
+                        description: invalid input, object invalid
+                      "409":
+                        description: an existing item already exists
+                    summary: adds a Wine item
+                    tags:
+                    - admins
+             
+            # Security Section
+            security:
+
+              # API Key Authentication
+              apiKeyClientAuth:
+                key: psk
+                keyLocation: QUERY_PARAM      # QUERY_PARAM or HEADER
+
+              # IDP for the Authentication process above: apiKeyClientAuth or jwtClientAuth
+              identityProviderRefs:
+                - ref: /security/identity-providers/cheese_keys
+
+              # Rate shaping definition
+              rateLimits:
+                writeLimit:
+                  key: $http_x_real_ip-$request_uri    # Default $binary_remote_addr, can be any NGINX variable
+                  rate: 1r/s
+                  statusCode: 429
+
+            backend:
+              ntlmAuthentication: DISABLED
+              preserveHostHeader: DISABLED
+              workloadGroups:
+                unit:
+                  loadBalancingMethod:
+                    type: ROUND_ROBIN
+                  locationRefs:
+                    - ref: /infrastructure/locations/unspecified
+                  uris:
+                    'http://unit1:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+                    'http://unit2:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+              monitoring:
+                defaultState: HEALTHY
+                uri: /
+            logging:
+              errorLog: DISABLED
+              accessLog:
+                state: ENABLED
+
+      # This one is for a published API
+      cheese_read:
+        parent: whatcheese_api
+        config:
+          metadata:
+            name: cheese_read
+            displayName: Cheese API Read
+            tags: []
+          desiredState:
+            publishedApiRefs:
+              - ref: /services/environments/cheese_prod/apps/whatcheese_api/published-apis/whatcheese_api
+            ingress:
+              gatewayRefs:
+              - ref: /services/environments/cheese_prod/gateways/nginx_api
+              uris:
+                /beer:
+                  get:
+                    description: |
+                      Get a list of the known Beers
+                    operationId: getBeer
+                    parameters:
+                    - description: pass an optional search string for looking up inventory
+                      in: query
+                      name: searchString
+                      required: false
+                      schema:
+                        type: string
+                    responses:
+                      "200":
+                        content:
+                          application/json:
+                            schema:
+                              items:
+                                $ref: '#/components/schemas/Item'
+                              type: array
+                        description: search results matching criteria
+                      "400":
+                        description: bad input parameter
+                    summary: Get Beer
+                /cheese:
+                  get:
+                    description: |
+                      Get a list of the known Cheeses
+                    operationId: getCheese
+                    parameters:
+                    - description: pass an optional search string for looking up inventory
+                      in: query
+                      name: searchString
+                      required: false
+                      schema:
+                        type: string
+                    responses:
+                      "200":
+                        content:
+                          application/json:
+                            schema:
+                              items:
+                                $ref: '#/components/schemas/Item'
+                              type: array
+                        description: search results matching criteria
+                      "400":
+                        description: bad input parameter
+                    summary: Get Cheese
+                /pickle:
+                  get:
+                    description: |
+                      Get a list of the known Pickles
+                    operationId: getPickle
+                    parameters:
+                    - description: pass an optional search string for looking up inventory
+                      in: query
+                      name: searchString
+                      required: false
+                      schema:
+                        type: string
+                    responses:
+                      "200":
+                        content:
+                          application/json:
+                            schema:
+                              items:
+                                $ref: '#/components/schemas/Item'
+                              type: array
+                        description: search results matching criteria
+                      "400":
+                        description: bad input parameter
+                    summary: Get Pickle
+                /wine:
+                  get:
+                    description: |
+                      Get a list of the known Wines
+                    operationId: getWine
+                    parameters:
+                    - description: pass an optional search string for looking up inventory
+                      in: query
+                      name: searchString
+                      required: false
+                      schema:
+                        type: string
+                    responses:
+                      "200":
+                        content:
+                          application/json:
+                            schema:
+                              items:
+                                $ref: '#/components/schemas/Item'
+                              type: array
+                        description: search results matching criteria
+                      "400":
+                        description: bad input parameter
+                    summary: Get Wine
+             
+            # Security Section
+            security:
+
+              # Rate shaping definition
+              rateLimits:
+                readLimit:
+                  key: $http_x_real_ip-$request_uri    # Default $binary_remote_addr, can be any NGINX variable
+                  rate: 5r/s
+                  statusCode: 429
+
+            backend:
+              ntlmAuthentication: DISABLED
+              preserveHostHeader: DISABLED
+              workloadGroups:
+                unit:
+                  loadBalancingMethod:
+                    type: ROUND_ROBIN
+                  locationRefs:
+                    - ref: /infrastructure/locations/unspecified
+                  uris:
+                    'http://unit1:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+                    'http://unit2:81':
+                      isBackup: false
+                      isDown: false
+                      isDrain: false
+                      resolve: DISABLED
+              monitoring:
+                defaultState: HEALTHY
+                uri: /
+            logging:
+              errorLog: DISABLED
+              accessLog:
+                state: ENABLED
+

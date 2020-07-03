@@ -4,9 +4,13 @@
   become: no
   gather_facts: no
   vars_files:
-    - ~/ansible/vars/apps.yaml
+    - "~/ansible/vars/apps.yaml"
 
   tasks:
+
+    - name: debug
+      debug:
+        msg: "{{ lookup('env','HOME') }}"
 
     - name: Load the Environment config
       include_vars:
@@ -24,7 +28,7 @@
 
       - name: "Load Environment URL Parameters"
         set_fact:
-          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments', 
+          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments',
                 'wait': true, 'create': '', 'method': 'POST' }  }) }}"
         loop: "{{ envs | dict2items }}"
 
@@ -47,8 +51,8 @@
 
       - name: "Load API-Definitions (OAS3) URL Parameters"
         set_fact:
-          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/api-definitions', 
-                'wait': true, 'create': '/' ~ item.value.config.metadata.name ~ '/oas-config', 'method': 'PUT' }  }) }}"
+          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/api-definitions/' ~ item.key ~ '/versions',
+                'wait': true, 'create': '/' ~ item.value.config.metadata.name, 'method': 'PUT' }  }) }}"
         loop: "{{ oas3 | default({}) | dict2items }}"
 
       - name: Upload API Definitions
@@ -76,7 +80,7 @@
 
       - name: "Inject EnvironmentRef Parameters"
         set_fact:
-          idps: "{{ idps | default({}) | combine({ item.key: {'config':{'desiredState':{'environmentRefs': [ { 'ref': '/services/environments/' ~ env } ]}}}}, recursive=true) }}" 
+          idps: "{{ idps | default({}) | combine({ item.key: {'config':{'desiredState':{'environmentRefs': [ { 'ref': '/services/environments/' ~ env } ]}}}}, recursive=true) }}"
         loop: "{{ idps | default({}) | dict2items }}"
 
       - name: Upload IDP Definitions
@@ -97,7 +101,7 @@
                 'wait': false, 'create': '/' ~ item.value.config.metadata.name, 'method': 'PUT' }  }) }}"
         loop: "{{ clients | default({}) |dict2items }}"
 
-      - name: Deploy the Gateways
+      - name: Deploy the IDPs
         include_tasks: tasks/deploy-app.yaml
         loop: "{{ clients | default({}) |dict2items }}"
 
@@ -162,14 +166,14 @@
 
       - name: "Load Application URL Parameters"
         set_fact:
-          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments/' ~ env ~ '/apps', 
+          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments/' ~ env ~ '/apps',
                 'wait': true, 'create': '', 'method': 'POST' }  }) }}"
         loop: "{{ envs[ env ].apps | default({}) |dict2items }}"
 
       - name: Deploy the Applications
         include_tasks: tasks/deploy-app.yaml
         loop: "{{ envs[ env ].apps | default({}) |dict2items}}"
-      
+
       when: envs[ env ].apps is defined
 
     - block:
@@ -187,7 +191,7 @@
       - name: Deploy the Published APIs
         include_tasks: tasks/deploy-app.yaml
         loop: "{{ envs[ env ].apis | default({}) |dict2items}}"
-      
+
       when: envs[ env ].apis is defined
 
     - block:
@@ -198,7 +202,7 @@
 
       - name: "Load Components URL Parameters"
         set_fact:
-          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments/' ~ env ~ '/apps/' ~ item.value.parent ~ '/components', 
+          urli: "{{  urli | default({}) | combine({ item.key: { 'path': '/services/environments/' ~ env ~ '/apps/' ~ item.value.parent ~ '/components',
                 'wait': true, 'create': '', 'method': 'POST' }  }) }}"
         loop: "{{ envs[ env ].components | default({}) |dict2items }}"
 
@@ -207,4 +211,3 @@
         loop: "{{ envs[ env ].components | default({}) |dict2items}}"
 
       when: envs[ env ].components is defined
-

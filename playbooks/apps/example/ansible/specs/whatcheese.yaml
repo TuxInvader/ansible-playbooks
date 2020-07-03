@@ -1,0 +1,263 @@
+openapi: 3.0.0
+# Added by API Auto Mocking Plugin
+servers:
+# Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/badpenguin/whatcheese/1.0.0
+  - description: WhatCheese API
+    url: https://api.ws01.ukws.nginxlab.net/v1
+info:
+  description: WhatCheese API
+  version: "1.0.0"
+  title: WhatCheese API
+  contact:
+    email: admin@nginx.com
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+tags:
+  - name: admins
+    description: Secured Admin-only calls
+  - name: developers
+    description: Operations available to regular developers
+paths:
+  /links:
+    get:
+      summary: Get API endpoints
+      operationId: getlinks
+      description: |
+        Get list of API items
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Links'
+        '400':
+          description: bad input parameter
+  /cheese:
+    get:
+      summary: Get Cheese
+      operationId: getCheese
+      description: |
+        Get a list of the known Cheeses
+      parameters:
+        - in: query
+          name: searchString
+          description: pass an optional search string for looking up inventory
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '400':
+          description: bad input parameter
+  /add/cheese:
+    post:
+      tags:
+        - admins
+      summary: adds a Cheese item
+      operationId: addCheese
+      description: Adds a Cheese to the system
+      responses:
+        '201':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+        description: The Cheese to add
+  /pickle:
+    get:
+      summary: Get Pickle
+      operationId: getPickle
+      description: |
+        Get a list of the known Pickles
+      parameters:
+        - in: query
+          name: searchString
+          description: pass an optional search string for looking up inventory
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '400':
+          description: bad input parameter
+  /add/pickle:
+    post:
+      tags:
+        - admins
+      summary: adds a Pickle item
+      operationId: addPickle
+      description: Adds a Pickle to the system
+      responses:
+        '201':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+        description: The Pickle to add
+  /wine:
+    get:
+      summary: Get Wine
+      operationId: getWine
+      description: |
+        Get a list of the known Wines
+      parameters:
+        - in: query
+          name: searchString
+          description: pass an optional search string for looking up inventory
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '400':
+          description: bad input parameter
+  /add/wine:
+    post:
+      tags:
+        - admins
+      summary: adds a Wine item
+      operationId: addWine
+      description: Adds a Wine to the system
+      responses:
+        '201':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+        description: The Wine to add
+  /beer:
+    get:
+      summary: Get Beer
+      operationId: getBeer
+      description: |
+        Get a list of the known Beers
+      parameters:
+        - in: query
+          name: searchString
+          description: pass an optional search string for looking up inventory
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '400':
+          description: bad input parameter
+  /add/beer:
+    post:
+      tags:
+        - admins
+      summary: adds a Beer item
+      operationId: addBeer
+      description: Adds a Beer to the system
+      responses:
+        '201':
+          description: item created
+        '400':
+          description: 'invalid input, object invalid'
+        '409':
+          description: an existing item already exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+        description: The Beer to add
+components:
+  schemas:
+    Links:
+      type: object
+      required:
+        - section
+        - items
+        - results
+      properties:
+        section:
+          type: string
+          example: 'cheese'
+        items:
+          type: string
+          format: integer
+          example: 1
+        results:
+          type: object
+          example: 'cheese'
+          additionalProperties:
+            type: object
+            required:
+              - href
+            properties:
+              href:
+                type: string
+                example: 'https://api.com/v1/cheese'
+    Item:
+      type: object
+      required:
+        - name
+        - country
+        - description
+      properties:
+        id:
+          type: string
+          format: integer
+          example: 99
+        name:
+          type: string
+          example: 'Cheddar'
+        country:
+          type: string
+          example: 'England'
+        description:
+          type: string
+          example: 'Cheddar cheese is a relatively hard, off-white (or orange if colourings such as annatto are added), sometimes sharp-tasting, natural cheese. Originating in the English village of Cheddar in Somerset'

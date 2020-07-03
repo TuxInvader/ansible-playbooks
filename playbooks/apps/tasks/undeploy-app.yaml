@@ -1,8 +1,12 @@
 ---
 
-  - name: "Check {{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+  - name: set delete Uri
+    set_fact:
+      delete_uri: "{{ urli[item.key].path }}{{ urli[item.key].delete | default ( '/' ~ item.value.config.metadata.name) }}"
+
+  - name: "Check {{ delete_uri }}"
     uri:
-      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ delete_uri }}"
       method: GET
       headers:
         Cookie: "session={{ nginx_controller_session.cookies.session }}"
@@ -11,11 +15,12 @@
         - 400
         - 404
       validate_certs: false
-    register: last_result
+    register: check_result
 
-  - name: "Remove {{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+
+  - name: "Remove {{ delete_uri }}"
     uri:
-      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ delete_uri }}"
       method: "DELETE"
       headers:
         Cookie: "session={{ nginx_controller_session.cookies.session }}"
@@ -24,11 +29,11 @@
         - 204
       validate_certs: false
     register: last_result
-    when: last_result.status == 200
+    when: check_result.status == 200
 
-  - name: "Wait for configuration {{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+  - name: "Wait for configuration {{ delete_uri }}"
     uri:
-      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ urli[item.key].path }}{{ '/' ~ item.value.config.metadata.name }}"
+      url: "https://{{ controller.hostname }}/api/{{ controller.api_version }}{{ delete_uri }}"
       method: GET
       headers:
         Cookie: "session={{ nginx_controller_session.cookies.session }}"
