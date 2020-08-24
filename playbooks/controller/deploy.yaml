@@ -8,6 +8,8 @@
     - name: Install Required Packages
       apt:
         name:
+          - socat
+          - conntrack
           - jq
           - apt-transport-https
           - ca-certificates
