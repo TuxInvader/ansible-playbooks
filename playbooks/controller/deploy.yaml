@@ -70,6 +70,7 @@
               --admin-firstname {{ controller.admin_firstname }}
               --admin-lastname {{ controller.admin_lastname }}
               --tsdb-volume-type local
+              --configdb-volume-type local
 
       when: not version_file.stat.exists
 

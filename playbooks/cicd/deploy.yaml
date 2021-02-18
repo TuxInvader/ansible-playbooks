@@ -11,6 +11,7 @@
     jenkins_admin_password: "{{ cicd.jenkins.admin_password }}"
     #jenkins_admin_password_file: /var/lib/jenkins/secrets/initialAdminPassword
     jenkins_updates_url: "{{ cicd.jenkins.updates_url }}"
+    jenkins_version: "{{ cicd.jenkins.version }}"
     jenkins_plugins: 
       - workflow-scm-step
       - display-url-api
