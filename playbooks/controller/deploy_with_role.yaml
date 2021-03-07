@@ -1,0 +1,96 @@
+---
+- hosts: controller
+  remote_user: ubuntu
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  vars_files:
+    - ~/ansible/vars/controller.yaml
+
+  tasks:
+  - name: set root password to support su for Controller installation with Ubuntu
+    user:
+      name: root
+      password: "{{ controller.su_password | password_hash('sha512') }}"
+
+  - name: copy the controller tar archive to the remote host
+    copy:
+      src: "{{ controller.install_package }}"
+      dest: "{{ controller.install_package }}"
+      owner: ubuntu
+      group: ubuntu
+      force: yes
+    vars:
+      nginx_controller_install_path: "{{ ansible_env.HOME }}"
+      nginx_controller_tarball: "controller-installer-3.14.0.tar.gz"
+    become: no
+
+  - name:  make sure all the prerequisites are present on the remote
+    apt:
+      name: "{{ packages }}"
+      state: present
+      update_cache: yes
+    vars:
+      packages:
+      - gettext
+      - bash
+      - gzip
+      - coreutils
+      - grep
+      - less
+      - sed
+      - tar
+      - socat
+      - conntrack
+      - jq
+      - python-pexpect  # to support ansible
+      - nfs-common  # to support nfs remote volume
+    tags: packages
+
+## changing security context on the remote host to su to run the installer
+- name: install controller
+  remote_user: ubuntu
+  hosts: controller
+  become: yes
+  become_user: ubuntu
+  become_method: su  # note that the become method is required to be su, you will need to support that for your distribution.
+  gather_facts: false
+  vars_files:
+    - ~/ansible/vars/controller.yaml
+
+  roles:
+    - nginxinc.nginx_controller.nginx_controller_install
+
+  vars:
+    - nginx_controller_tarball: "{{ controller.install_package }}"
+    - nginx_controller_install_path: /home/ubuntu
+    - nginx_controller_bundled_db: true
+    - nginx_controller_tsdb_volume_type: local
+    - nginx_controller_smtp_host: "localhost"
+    - nginx_controller_smtp_authentication: false
+    - nginx_controller_smtp_use_tls: false
+    - nginx_controller_noreply_address: "noreply@example.com"
+    - nginx_controller_fqdn:  "{{ controller.hostname }}"
+    - nginx_controller_organization_name: "NGINX"
+    - nginx_controller_admin_firstname: "{{ controller.admin_firstname }}"
+    - nginx_controller_admin_lastname: "{{ controller.admin_lastname }}"
+    - nginx_controller_admin_email: "{{ controller.admin_email }}"
+    - nginx_controller_admin_password: "{{ controller.admin_password }}"
+    - nginx_controller_self_signed_cert: true
+    - nginx_controller_overwrite_existing_configs: true
+    - ansible_python_interpreter: /usr/bin/python3
+    - ansible_become_password: "{{ controller.su_password }}"
+
+# pull the install log for review
+- hosts: controller
+  remote_user: ubuntu
+  become: yes
+  become_method: sudo
+  gather_facts: false
+
+  tasks:
+  - name: fetch the install log
+    fetch:
+      src: /var/log/nginx-controller/nginx-controller-install.log
+      dest: "/home/ubuntu/"
+

@@ -12,4 +12,5 @@
     admin_firstname: Admini
     admin_lastname: Strator
     api_key: ''
+    su_password: "{{ lookup('password', '~/controller.passwd length=12 chars=ascii_letters,digits') }}"
 
