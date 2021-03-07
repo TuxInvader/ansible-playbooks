@@ -12,6 +12,14 @@
 
   tasks:
 
+    - name: Install Required Packages
+      apt:
+        name:
+          - mariadb-server
+          - mariadb-client
+          - git
+        state: latest
+
     - name: Check for Gitea install, version {{ gitea_version }}
       stat:
         path: "/usr/local/bin/gitea-{{ gitea_version }}"
