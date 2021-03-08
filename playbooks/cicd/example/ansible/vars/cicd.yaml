@@ -19,3 +19,9 @@ cicd:
     admin_username: nginx
     admin_password: "{{ lookup('password', '~/jenkins.passwd length=12') }}"
 
+  docker:
+    secure: true
+    home: /home/docker
+    admin_username: nginx
+    admin_password: "{{ lookup('password', '~/secrets/docker.cicd.passwd length=12') }}"
+

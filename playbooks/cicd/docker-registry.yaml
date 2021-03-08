@@ -1,0 +1,186 @@
+---
+- hosts: cicd
+  become: yes
+  vars_files:
+    - ~/ansible/vars/cicd.yaml
+
+  tasks:
+
+  - name: Remove any OS docker packages
+    apt:
+      name:
+        - docker
+        - docker-engine
+        - docker.io
+        - containerd
+        - runc
+      state: absent
+
+  - name: Install pre-requisite packages
+    apt:
+      name:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg-agent
+        - software-properties-common
+        - apache2-utils
+        - build-essential
+        - pass
+      state: latest
+
+  - name: Add the Docker Repo Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add the Docker Repo
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+      state: present
+      update_cache: yes
+
+  - name: Install Docker
+    apt:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - python-docker
+        - python3-docker
+      state: latest
+
+  - name: Add user to the docker group
+    user:
+      name: ubuntu
+      append: yes
+      groups: docker
+
+  - name: Create the working directorys
+    file:
+      state: directory
+      path: "{{ item }}"
+      owner: "ubuntu"
+      group: "ubuntu"
+      mode: 0775
+    loop:
+    - "{{ cicd.docker.home }}"
+    - "{{ cicd.docker.home }}/auth"
+    - "{{ cicd.docker.home }}/certs"
+    - "{{ cicd.docker.home }}/registry"
+
+  - name: Remove any old registries
+    shell:
+      cmd: docker stop registry ; docker rm registry
+    ignore_errors: true
+
+  - name: Create TLS Certs
+    block:
+
+    - name: Create the TLS Key
+      command:
+        chdir: "{{ cicd.docker.home }}"
+        argv:
+          - "openssl"
+          - "req"
+          - "-new"
+          - "-nodes"
+          - "-keyout"
+          - "{{ cicd.docker.home }}/certs/domain.key"
+          - "-subj"
+          - "/C=GB/ST=London/L=London/O=NGINX Inc/CN=cicd1.{{ wsid }}.{{ domain }}"
+      register: csr_result
+
+    - name: Write CSR to disk
+      copy:
+        content: "{{ csr_result.stdout }}"
+        dest: "{{ cicd.docker.home }}/certs/domain.csr"
+        mode: 0644
+  
+    - name: Copy the docker csr to local file
+      copy:
+       content: "{{ csr_result.stdout }}"
+       dest: "{{ cicd.docker.cahome }}/csr/registry.csr.pem"
+      delegate_to: localhost
+      become: true
+
+    - name: Add The altnames
+      blockinfile:
+        block: |
+         [alt_names]
+         DNS.0=cicd1.{{ wsid }}.{{ domain }}
+         DNS.1=registry.{{ wsid }}.{{ domain }}
+         DNS.2=registry
+        path: "{{ cicd.docker.cahome }}/openssl.cnf"
+      delegate_to: localhost
+      become: true
+  
+    - name: Create the TLS Certificate
+      command:
+        chdir: "{{ cicd.docker.cahome }}"
+        argv:
+          - "openssl"
+          - "ca"
+          - "-batch"
+          - "-config"
+          - "{{ cicd.docker.cahome }}/openssl.cnf"
+          - "-md"
+          - "sha256"
+          - "-in"
+          - "{{ cicd.docker.cahome }}/csr/registry.csr.pem"
+          - "-out"
+          - "{{ cicd.docker.cahome }}/certs/registry.crt.pem"
+          - "-days"
+          - "90"
+          - "-extensions"
+          - "v3_req"
+      delegate_to: localhost
+      become: true
+
+    - name: Remove The altnames
+      blockinfile:
+        block: |
+         [alt_names]
+         DNS.0=cicd1.{{ wsid }}.{{ domain }}
+         DNS.1=registry.{{ wsid }}.{{ domain }}
+         DNS.2=registry
+        path: "{{ cicd.docker.cahome }}/openssl.cnf"
+        state: absent
+      delegate_to: localhost
+      become: true
+  
+    - name: Upload the Signed certificate
+      copy:
+        src: "{{ cicd.docker.cahome }}/certs/registry.crt.pem"
+        dest: "{{ cicd.docker.home }}/certs/domain.crt"
+
+    - name: Setup the docker user
+      shell:
+        cmd: |
+          htpasswd -Bbn {{ cicd.docker.admin_username }} {{ cicd.docker.admin_password }} > {{ cicd.docker.home }}/auth/htpasswd
+
+    - name: Start the docker registry
+      shell:
+        cmd: |
+          docker run -d -p 5000:5000 --restart=always --name registry \
+          -v {{ cicd.docker.home }}/certs:/certs \
+          -v {{ cicd.docker.home }}/auth:/auth \
+          -v {{ cicd.docker.home }}/registry:/var/lib/registry \
+          -e REGISTRY_AUTH=htpasswd \
+          -e REGISTRY_AUTH_HTPASSWD_REALM=PrivateRepo \
+          -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
+          -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+          -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key \
+          registry:2
+
+    when: cicd.docker.secure | bool
+
+  - name: Start the docker registry
+    shell:
+      cmd: |
+        docker run -d -p 5000:5000 --restart=always --name registry \
+        -v {{ cicd.docker.home }}/registry:/var/lib/registry \
+        registry:2
+    when: not cicd.docker.secure
+
+

@@ -1,0 +1,125 @@
+---
+- hosts: localhost
+  become: yes
+  vars_files:
+    - ~/ansible/vars/openssl_ca.yaml
+
+  tasks:
+
+  - name: Install pre-requisite packages
+    apt:
+      name:
+        - openssl
+        - ca-certificates
+      state: latest
+
+  - name: Check for existing CA
+    stat:
+      path: "{{ ca.home }}"
+    register: cadir
+
+  - name: Only Create the CA once. Exit here if CA folder exists
+    meta: end_play
+    when: cadir.stat.exists
+
+  - name: Create the working directories
+    file:
+      state: directory
+      path: "{{ item }}"
+      owner: "ubuntu"
+      group: "ubuntu"
+      mode: 0775
+    loop:
+    - "{{ ca.home }}"
+    - "{{ ca.home }}/private"
+    - "{{ ca.home }}/certs"
+    - "{{ ca.home }}/crl"
+    - "{{ ca.home }}/csr"
+    become: false
+
+  - name: Create the required files
+    file:
+      state: touch
+      path: "{{ item }}"
+      owner: "ubuntu"
+      group: "ubuntu"
+      mode: 0644
+    loop:
+    - "{{ ca.home }}/index.txt"
+    become: false
+
+  - name: Create the serial file
+    copy:
+      content: "1000\n"
+      dest: "{{ ca.home }}/serial"
+      mode: 0644
+    become: false
+
+  - name: upload the openssl config
+    template:
+      src: files/openssl.j2
+      dest: "{{ ca.home }}/openssl.cnf"
+      mode: 0644
+    become: false
+
+  - name: Add The altnames
+    blockinfile:
+      block: |
+       [alt_names]
+       DNS.0=gateway
+      path: "{{ ca.home }}/openssl.cnf"
+    become: false
+
+  - name: Create the CA Key
+    command:
+      chdir: "{{ ca.home }}"
+      argv:
+        - "openssl"
+        - "genrsa"
+        - "-out"
+        - "{{ ca.home }}/ca.key.pem"
+        - "4096"
+    become: false
+
+  - name: Create the CA Certificate
+    command:
+      chdir: "{{ ca.home }}"
+      argv:
+        - "openssl"
+        - "req"
+        - "-new"
+        - "-x509"
+        - "-config"
+        - "{{ ca.home }}/openssl.cnf"
+        - "-out"
+        - "{{ ca.home }}/ca.cert.pem"
+        - "-key"
+        - "{{ ca.home }}/ca.key.pem"
+        - "-days"
+        - "365"
+        - "-extensions"
+        - "v3_ca"
+        - "-subj"
+        - "/C=GB/ST=London/L=London/O=NGINX Inc/CN=ca.{{ wsid }}.{{ domain }}"
+    become: false
+
+  - name: Remove The altnames
+    blockinfile:
+      block: |
+       [alt_names]
+       DNS.0=gateway
+      path: "{{ ca.home }}/openssl.cnf"
+      state: absent
+    become: false
+
+  - name: Copy the CA cert to /usr/local/share/ca-certs
+    copy:
+      src: "{{ ca.home }}/ca.cert.pem"
+      dest: "/usr/local/share/ca-certificates/workshop_ca.crt"
+    become: true
+
+  - name: Update certificate trust
+    shell:
+      cmd: "update-ca-certificates"
+    become: true
+
