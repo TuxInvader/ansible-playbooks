@@ -56,6 +56,42 @@
       append: yes
       groups: docker
 
+  - name: Also install docker compose
+    get_url:
+     url: https://github.com/docker/compose/releases/download/1.28.5/docker-compose-Linux-x86_64
+     dest: /usr/local/bin/docker-compose
+     mode: 0755
+
+  - name: Open Access to docker from network
+    block:
+
+    - name: Create the docker options dir
+      file:
+        state: directory
+        path: /etc/systemd/system/docker.service.d
+        mode: 0755
+        owner: root
+        group: root
+
+    - name: Create docker options conf
+      copy:
+        dest: /etc/systemd/system/docker.service.d/options.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/bin/dockerd -H unix:// -H tcp://0.0.0.0:2375
+
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: reload docker daemon
+      systemd:
+        name: docker
+        state: restarted
+
+    when: cicd.docker.enable_insecure_daemon_network_connections
+
   - name: Create the working directorys
     file:
       state: directory
