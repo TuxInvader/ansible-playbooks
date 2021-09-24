@@ -39,6 +39,21 @@
       - docker-ce-cli 
       - containerd.io
 
+  - name: Configure docker to use systemd
+    lineinfile:
+      path: /etc/docker/daemon.json
+      line: '{"exec-opts": ["native.cgroupdriver=systemd"]}'
+      create: yes
+      state: present
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: Restart docker
+    service:
+      name: docker
+      state: restarted
+      
   - name: Remove swapfile from /etc/fstab
     mount:
       name: "{{ item }}"
