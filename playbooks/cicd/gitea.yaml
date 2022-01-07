@@ -67,22 +67,22 @@
         - "{{gitea_workdir}}/log"
         - "/etc/gitea"
 
-    - name: Generate the gitea INTERNAL TOKEN 
+    - name: Generate the gitea INTERNAL TOKEN
       command: "gitea generate secret INTERNAL_TOKEN"
       register: "gitea_secret_token"
       when: gitea_config.stat.exists == False
 
-    - name: Generate the gitea JWT SECRET 
+    - name: Generate the gitea JWT SECRET
       command: "gitea generate secret JWT_SECRET"
       register: "gitea_secret_jwt"
       when: gitea_config.stat.exists == False
 
-    - name: Generate the gitea LFS SECRET 
+    - name: Generate the gitea LFS SECRET
       command: "gitea generate secret JWT_SECRET"
       register: "gitea_secret_lfs"
       when: gitea_config.stat.exists == False
 
-    - name: Generate the gitea SECRET KEY 
+    - name: Generate the gitea SECRET KEY
       command: "gitea generate secret SECRET_KEY"
       register: "gitea_secret_key"
       when: gitea_config.stat.exists == False
@@ -139,16 +139,16 @@
         gitea_nginx_user_count = "{{gitea_nginx_user_count.stdout}}"
 
     - name: Create the admin user for Gitea
-      become_user: "{{gitea_user}}"
-      command: 
-        cmd: "gitea -c /etc/gitea/app.ini admin create-user --username {{ cicd.git.admin_username }} \
-             --password {{ cicd.git.admin_password }} --email someone@nginx.com --admin"
+      #become_user: "{{gitea_user}}"
+      command:
+        cmd: "su - gitea -c 'gitea -c /etc/gitea/app.ini admin create-user --username {{ cicd.git.admin_username }} \
+             --password {{ cicd.git.admin_password }} --email someone@nginx.com --admin'"
       when: gitea_nginx_user_count.stdout == "0"
 
     - block:
 
       - name: Deploy the git repositories backup
-        become_user: "{{gitea_user}}"
+        #become_user: "{{gitea_user}}"
         unarchive:
           dest: "{{gitea_home}}"
           owner: "{{gitea_user}}"
